@@ -40,8 +40,7 @@ export class ToppingOption {
   price: number; // Giá của topping (VNĐ)
 }
 
-export const ToppingOptionSchema =
-  SchemaFactory.createForClass(ToppingOption);
+export const ToppingOptionSchema = SchemaFactory.createForClass(ToppingOption);
 
 // ─── Main: Product (khớp FE Drink interface) ─────────────────────────────────
 export type ProductDocument = HydratedDocument<Product>;

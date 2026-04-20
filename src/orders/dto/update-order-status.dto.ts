@@ -1,9 +1,9 @@
 import { IsEnum } from 'class-validator';
-import { TrangThaiDonHang } from '../schemas/order.schema';
+import { OrderStatus } from '../schemas/order.schema';
 
 export class UpdateOrderStatusDto {
-  @IsEnum(TrangThaiDonHang, {
-    message: `trangThai phải là một trong các giá trị: ${Object.values(TrangThaiDonHang).join(', ')}`,
+  @IsEnum(OrderStatus, {
+    message: `status must be one of: ${Object.values(OrderStatus).join(', ')}`,
   })
-  trangThai: TrangThaiDonHang;
+  status: OrderStatus;
 }

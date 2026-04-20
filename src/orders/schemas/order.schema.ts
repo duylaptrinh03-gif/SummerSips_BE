@@ -1,25 +1,24 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
 
-// ─── Enum: TrangThaiDonHang (khớp FE) ────────────────────────────────────────
-export enum TrangThaiDonHang {
-  CHO_XAC_NHAN = 'cho_xac_nhan',
-  DANG_PHA_CHE = 'dang_pha_che',
-  DANG_GIAO = 'dang_giao',
-  HOAN_THANH = 'hoan_thanh',
-  DA_HUY = 'da_huy',
+// ─── Enum: OrderStatus ────────────────────────────────────────────────────────
+export enum OrderStatus {
+  PENDING = 'pending',
+  PREPARING = 'preparing',
+  DELIVERING = 'delivering',
+  COMPLETED = 'completed',
+  CANCELLED = 'cancelled',
 }
 
-// Label hiển thị cho từng trạng thái (khớp FE TRANG_THAI_LABEL)
-export const TRANG_THAI_LABEL: Record<TrangThaiDonHang, string> = {
-  [TrangThaiDonHang.CHO_XAC_NHAN]: 'Chờ xác nhận',
-  [TrangThaiDonHang.DANG_PHA_CHE]: 'Đang pha chế',
-  [TrangThaiDonHang.DANG_GIAO]: 'Đang giao hàng',
-  [TrangThaiDonHang.HOAN_THANH]: 'Hoàn thành',
-  [TrangThaiDonHang.DA_HUY]: 'Đã hủy',
+export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
+  [OrderStatus.PENDING]: 'Chờ xác nhận',
+  [OrderStatus.PREPARING]: 'Đang pha chế',
+  [OrderStatus.DELIVERING]: 'Đang giao hàng',
+  [OrderStatus.COMPLETED]: 'Hoàn thành',
+  [OrderStatus.CANCELLED]: 'Đã hủy',
 };
 
-// ─── Embedded: ToppingOption (snapshot trong CartItem) ───────────────────────
+// ─── Embedded: OrderItemTopping ───────────────────────────────────────────────
 @Schema({ _id: false })
 export class OrderItemTopping {
   @Prop({ required: true })
@@ -35,14 +34,14 @@ export class OrderItemTopping {
 export const OrderItemToppingSchema =
   SchemaFactory.createForClass(OrderItemTopping);
 
-// ─── Embedded: OrderItem (khớp FE CartItem) ──────────────────────────────────
+// ─── Embedded: OrderItem (matches FE CartItem) ────────────────────────────────
 @Schema({ _id: false })
 export class OrderItem {
   @Prop({ required: true })
-  cartId: string; // UUID riêng cho mỗi lần thêm
+  cartId: string;
 
   @Prop({ required: true })
-  drinkId: number; // FE dùng id: number
+  drinkId: string;
 
   @Prop({ required: true })
   name: string;
@@ -51,25 +50,25 @@ export class OrderItem {
   image: string;
 
   @Prop({ required: true, min: 0 })
-  basePrice: number; // Giá gốc (size S)
+  basePrice: number;
 
   @Prop({ required: true, enum: ['S', 'M', 'L'] })
   size: 'S' | 'M' | 'L';
 
   @Prop({ required: true, min: 0 })
-  sizeExtraPrice: number; // Giá cộng thêm của size đã chọn
+  sizeExtraPrice: number;
 
   @Prop({ type: [OrderItemToppingSchema], default: [] })
-  toppings: OrderItemTopping[]; // Danh sách topping đã chọn
+  toppings: OrderItemTopping[];
 
   @Prop({ required: true, enum: [0, 50, 100], default: 100 })
-  iceLevel: 0 | 50 | 100; // Mức đá: 0%, 50%, 100%
+  iceLevel: 0 | 50 | 100;
 
   @Prop({ required: true, enum: [0, 50, 100], default: 100 })
-  sugarLevel: 0 | 50 | 100; // Mức đường: 0%, 50%, 100%
+  sugarLevel: 0 | 50 | 100;
 
   @Prop({ default: '' })
-  note: string; // Ghi chú riêng
+  note: string;
 
   @Prop({ required: true, min: 1 })
   quantity: number;
@@ -77,53 +76,51 @@ export class OrderItem {
 
 export const OrderItemSchema = SchemaFactory.createForClass(OrderItem);
 
-// ─── Embedded: ThongTinNhan (khớp FE) ────────────────────────────────────────
+// ─── Embedded: RecipientInfo ─────────────────────────────────────────────────
 @Schema({ _id: false })
-export class ThongTinNhan {
+export class RecipientInfo {
   @Prop({ required: true, trim: true })
-  hoTen: string;
+  fullName: string;
 
   @Prop({ required: true, trim: true })
-  soDienThoai: string;
+  phoneNumber: string;
 
   @Prop({ required: true, trim: true })
-  diaChi: string; // Địa chỉ giao hàng
+  address: string;
 }
 
-export const ThongTinNhanSchema =
-  SchemaFactory.createForClass(ThongTinNhan);
+export const RecipientInfoSchema = SchemaFactory.createForClass(RecipientInfo);
 
-// ─── Main: Order (khớp FE Order interface) ───────────────────────────────────
+// ─── Main: Order ──────────────────────────────────────────────────────────────
 export type OrderDocument = HydratedDocument<Order>;
 
 @Schema({ timestamps: true })
 export class Order {
   @Prop({ required: true, unique: true })
-  orderId: string; // e.g. "ORD-1713161234567" — FE gọi là `id`
+  orderId: string; // e.g. "ORD-1713161234567"
 
   @Prop({ type: [OrderItemSchema], required: true })
   items: OrderItem[];
 
-  @Prop({ type: ThongTinNhanSchema, required: true })
-  thongTinNhan: ThongTinNhan;
+  @Prop({ type: RecipientInfoSchema, required: true })
+  recipientInfo: RecipientInfo;
 
   @Prop({ required: true, min: 0 })
-  tongTien: number;
+  totalPrice: number;
 
   @Prop({
     required: true,
-    enum: TrangThaiDonHang,
-    default: TrangThaiDonHang.CHO_XAC_NHAN,
+    enum: OrderStatus,
+    default: OrderStatus.PENDING,
   })
-  trangThai: TrangThaiDonHang;
+  status: OrderStatus;
 
   @Prop({ required: true })
-  taoLuc: string; // ISO string — FE dùng `taoLuc`
+  orderedAt: string; // ISO string
 }
 
 export const OrderSchema = SchemaFactory.createForClass(Order);
 
-// Indexes để tra cứu đơn hàng nhanh
-OrderSchema.index({ trangThai: 1 });
+OrderSchema.index({ status: 1 });
 OrderSchema.index({ orderId: 1 });
-OrderSchema.index({ taoLuc: -1 });
+OrderSchema.index({ orderedAt: -1 });

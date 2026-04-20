@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, isValidObjectId } from 'mongoose';
-import { Order, OrderDocument, TrangThaiDonHang } from './schemas/order.schema';
+import { Order, OrderDocument, OrderStatus } from './schemas/order.schema';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 
@@ -19,12 +19,10 @@ export class OrdersService {
   // ─── Helpers ───────────────────────────────────────────────────────────────
 
   /**
-   * Tính tổng giá từ items (logic khớp FE calculateItemPrice)
+   * Calculate total price from items — mirrors FE calculateItemPrice logic:
    * (basePrice + sizeExtraPrice + toppingTotal) * quantity
    */
-  private calculateTongTien(
-    items: CreateOrderDto['items'],
-  ): number {
+  private calculateTotalPrice(items: CreateOrderDto['items']): number {
     return items.reduce((total, item) => {
       const toppingTotal = (item.toppings ?? []).reduce(
         (sum, t) => sum + t.price,
@@ -39,12 +37,9 @@ export class OrdersService {
   // ─── Create Order ──────────────────────────────────────────────────────────
 
   async create(createOrderDto: CreateOrderDto): Promise<OrderDocument> {
-    const { thongTinNhan, items } = createOrderDto;
+    const { recipientInfo, items } = createOrderDto;
 
-    // Tính tổng tiền (server-side verify, khớp FE calculateItemPrice)
-    const tongTien = this.calculateTongTien(items);
-
-    // Generate orderId theo format FE: "ORD-{timestamp}"
+    const totalPrice = this.calculateTotalPrice(items);
     const orderId = `ORD-${Date.now()}`;
 
     const order = new this.orderModel({
@@ -63,14 +58,14 @@ export class OrdersService {
         note: item.note ?? '',
         quantity: item.quantity,
       })),
-      thongTinNhan: {
-        hoTen: thongTinNhan.hoTen,
-        soDienThoai: thongTinNhan.soDienThoai,
-        diaChi: thongTinNhan.diaChi,
+      recipientInfo: {
+        fullName: recipientInfo.fullName,
+        phoneNumber: recipientInfo.phoneNumber,
+        address: recipientInfo.address,
       },
-      tongTien,
-      trangThai: TrangThaiDonHang.CHO_XAC_NHAN,
-      taoLuc: new Date().toISOString(),
+      totalPrice,
+      status: OrderStatus.PENDING,
+      orderedAt: new Date().toISOString(),
     });
 
     return order.save();
@@ -79,30 +74,25 @@ export class OrdersService {
   // ─── Find All ──────────────────────────────────────────────────────────────
 
   async findAll(): Promise<OrderDocument[]> {
-    return this.orderModel
-      .find()
-      .sort({ taoLuc: -1 })
-      .lean()
-      .exec();
+    return this.orderModel.find().sort({ orderedAt: -1 }).lean().exec();
   }
 
   // ─── Find One ──────────────────────────────────────────────────────────────
 
   async findOne(id: string): Promise<OrderDocument> {
-    // Hỗ trợ tìm theo cả MongoDB _id và orderId (ORD-xxx)
     let order: OrderDocument | null;
 
     if (id.startsWith('ORD-')) {
       order = await this.orderModel.findOne({ orderId: id }).exec();
     } else {
       if (!isValidObjectId(id)) {
-        throw new BadRequestException('id không hợp lệ');
+        throw new BadRequestException('Invalid id');
       }
       order = await this.orderModel.findById(id).exec();
     }
 
     if (!order) {
-      throw new NotFoundException(`Không tìm thấy đơn hàng với id: ${id}`);
+      throw new NotFoundException(`Order not found: ${id}`);
     }
 
     return order;
@@ -120,25 +110,25 @@ export class OrdersService {
       order = await this.orderModel
         .findOneAndUpdate(
           { orderId: id },
-          { $set: { trangThai: updateStatusDto.trangThai } },
+          { $set: { status: updateStatusDto.status } },
           { new: true },
         )
         .exec();
     } else {
       if (!isValidObjectId(id)) {
-        throw new BadRequestException('id không hợp lệ');
+        throw new BadRequestException('Invalid id');
       }
       order = await this.orderModel
         .findByIdAndUpdate(
           id,
-          { $set: { trangThai: updateStatusDto.trangThai } },
+          { $set: { status: updateStatusDto.status } },
           { new: true },
         )
         .exec();
     }
 
     if (!order) {
-      throw new NotFoundException(`Không tìm thấy đơn hàng với id: ${id}`);
+      throw new NotFoundException(`Order not found: ${id}`);
     }
 
     return order;

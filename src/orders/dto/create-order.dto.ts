@@ -11,7 +11,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-// ─── Nested DTO: Topping đã chọn (khớp FE ToppingOption) ────────────────────
+// ─── Nested DTO: Topping ──────────────────────────────────────────────────────
 export class OrderItemToppingDto {
   @IsString()
   id: string;
@@ -24,13 +24,13 @@ export class OrderItemToppingDto {
   price: number;
 }
 
-// ─── Nested DTO: CartItem (FE gửi full thông tin) ────────────────────────────
+// ─── Nested DTO: OrderItem (full CartItem from FE) ────────────────────────────
 export class CreateOrderItemDto {
   @IsString()
-  cartId: string; // UUID riêng
+  cartId: string;
 
   @IsNumber()
-  drinkId: number;
+  drinkId: string;
 
   @IsString()
   name: string;
@@ -43,7 +43,7 @@ export class CreateOrderItemDto {
   @Min(0)
   basePrice: number;
 
-  @IsEnum(['S', 'M', 'L'], { message: 'size phải là S, M hoặc L' })
+  @IsEnum(['S', 'M', 'L'], { message: 'size must be S, M or L' })
   size: 'S' | 'M' | 'L';
 
   @IsNumber()
@@ -56,10 +56,10 @@ export class CreateOrderItemDto {
   @Type(() => OrderItemToppingDto)
   toppings?: OrderItemToppingDto[];
 
-  @IsEnum([0, 50, 100], { message: 'iceLevel phải là 0, 50 hoặc 100' })
+  @IsEnum([0, 50, 100], { message: 'iceLevel must be 0, 50 or 100' })
   iceLevel: 0 | 50 | 100;
 
-  @IsEnum([0, 50, 100], { message: 'sugarLevel phải là 0, 50 hoặc 100' })
+  @IsEnum([0, 50, 100], { message: 'sugarLevel must be 0, 50 or 100' })
   sugarLevel: 0 | 50 | 100;
 
   @IsOptional()
@@ -71,24 +71,24 @@ export class CreateOrderItemDto {
   quantity: number;
 }
 
-// ─── Nested DTO: ThongTinNhan (khớp FE) ──────────────────────────────────────
-export class ThongTinNhanDto {
+// ─── Nested DTO: RecipientInfo ────────────────────────────────────────────────
+export class RecipientInfoDto {
   @IsString()
   @MinLength(2)
-  hoTen: string;
+  fullName: string;
 
   @IsString()
-  soDienThoai: string;
+  phoneNumber: string;
 
   @IsString()
-  diaChi: string;
+  address: string;
 }
 
 // ─── Main DTO: CreateOrder ────────────────────────────────────────────────────
 export class CreateOrderDto {
   @ValidateNested()
-  @Type(() => ThongTinNhanDto)
-  thongTinNhan: ThongTinNhanDto;
+  @Type(() => RecipientInfoDto)
+  recipientInfo: RecipientInfoDto;
 
   @IsArray()
   @ValidateNested({ each: true })
