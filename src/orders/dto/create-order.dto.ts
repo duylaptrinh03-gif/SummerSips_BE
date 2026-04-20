@@ -29,7 +29,7 @@ export class CreateOrderItemDto {
   @IsString()
   cartId: string;
 
-  @IsNumber()
+  @IsString()
   drinkId: string;
 
   @IsString()

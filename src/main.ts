@@ -1,12 +1,16 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Global prefix: tất cả route sẽ bắt đầu bằng /api/v1
   app.setGlobalPrefix('api/v1');
+
+  // Global Interceptor: chuẩn hóa dữ liệu trả về { statusCode, data, totalResult }
+  app.useGlobalInterceptors(new TransformInterceptor());
 
   // Global ValidationPipe: tự động validate DTO, transform payload, bỏ qua field không khai báo
   app.useGlobalPipes(
