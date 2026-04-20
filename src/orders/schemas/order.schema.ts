@@ -1,21 +1,32 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import mongoose, { HydratedDocument } from 'mongoose';
-import { Product } from '../../products/schemas/product.schema';
+import { HydratedDocument } from 'mongoose';
 
-// ─── Enum: OrderStatus ────────────────────────────────────────────────────────
-export enum OrderStatus {
-  CHO_XAC_NHAN = 'CHO_XAC_NHAN',
-  DANG_PHA_CHE = 'DANG_PHA_CHE',
-  DANG_GIAO = 'DANG_GIAO',
-  HOAN_THANH = 'HOAN_THANH',
-  DA_HUY = 'DA_HUY',
+// ─── Enum: TrangThaiDonHang (khớp FE) ────────────────────────────────────────
+export enum TrangThaiDonHang {
+  CHO_XAC_NHAN = 'cho_xac_nhan',
+  DANG_PHA_CHE = 'dang_pha_che',
+  DANG_GIAO = 'dang_giao',
+  HOAN_THANH = 'hoan_thanh',
+  DA_HUY = 'da_huy',
 }
 
-// ─── Embedded: OrderItemTopping (snapshot tại thời điểm mua) ─────────────────
+// Label hiển thị cho từng trạng thái (khớp FE TRANG_THAI_LABEL)
+export const TRANG_THAI_LABEL: Record<TrangThaiDonHang, string> = {
+  [TrangThaiDonHang.CHO_XAC_NHAN]: 'Chờ xác nhận',
+  [TrangThaiDonHang.DANG_PHA_CHE]: 'Đang pha chế',
+  [TrangThaiDonHang.DANG_GIAO]: 'Đang giao hàng',
+  [TrangThaiDonHang.HOAN_THANH]: 'Hoàn thành',
+  [TrangThaiDonHang.DA_HUY]: 'Đã hủy',
+};
+
+// ─── Embedded: ToppingOption (snapshot trong CartItem) ───────────────────────
 @Schema({ _id: false })
 export class OrderItemTopping {
   @Prop({ required: true })
-  topping_name: string;
+  id: string;
+
+  @Prop({ required: true })
+  name: string;
 
   @Prop({ required: true, min: 0 })
   price: number;
@@ -24,86 +35,95 @@ export class OrderItemTopping {
 export const OrderItemToppingSchema =
   SchemaFactory.createForClass(OrderItemTopping);
 
-// ─── Embedded: OrderItem ──────────────────────────────────────────────────────
+// ─── Embedded: OrderItem (khớp FE CartItem) ──────────────────────────────────
 @Schema({ _id: false })
 export class OrderItem {
-  @Prop({
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Product',
-    required: true,
-  })
-  product_id: Product;
+  @Prop({ required: true })
+  cartId: string; // UUID riêng cho mỗi lần thêm
 
-  @Prop({ required: true, min: 1 })
-  quantity: number;
+  @Prop({ required: true })
+  drinkId: number; // FE dùng id: number
 
-  /** Kích cỡ khách chọn (S / M / L) */
+  @Prop({ required: true })
+  name: string;
+
+  @Prop({ default: '' })
+  image: string;
+
+  @Prop({ required: true, min: 0 })
+  basePrice: number; // Giá gốc (size S)
+
   @Prop({ required: true, enum: ['S', 'M', 'L'] })
   size: 'S' | 'M' | 'L';
 
-  /** Phần trăm đường: 0 / 25 / 50 / 75 / 100 */
-  @Prop({ default: 100 })
-  sugar_level: number;
+  @Prop({ required: true, min: 0 })
+  sizeExtraPrice: number; // Giá cộng thêm của size đã chọn
 
-  /** Phần trăm đá: 0 / 25 / 50 / 75 / 100 */
-  @Prop({ default: 100 })
-  ice_level: number;
+  @Prop({ type: [OrderItemToppingSchema], default: [] })
+  toppings: OrderItemTopping[]; // Danh sách topping đã chọn
+
+  @Prop({ required: true, enum: [0, 50, 100], default: 100 })
+  iceLevel: 0 | 50 | 100; // Mức đá: 0%, 50%, 100%
+
+  @Prop({ required: true, enum: [0, 50, 100], default: 100 })
+  sugarLevel: 0 | 50 | 100; // Mức đường: 0%, 50%, 100%
 
   @Prop({ default: '' })
-  note: string;
+  note: string; // Ghi chú riêng
 
-  /** Snapshot giá topping tại thời điểm đặt hàng */
-  @Prop({ type: [OrderItemToppingSchema], default: [] })
-  toppings: OrderItemTopping[];
-
-  /** Giá của 1 item (base + size extra + toppings) × quantity — được backend tự tính */
-  @Prop({ required: true, min: 0 })
-  item_price: number;
+  @Prop({ required: true, min: 1 })
+  quantity: number;
 }
 
 export const OrderItemSchema = SchemaFactory.createForClass(OrderItem);
 
-// ─── Main: Order ──────────────────────────────────────────────────────────────
+// ─── Embedded: ThongTinNhan (khớp FE) ────────────────────────────────────────
+@Schema({ _id: false })
+export class ThongTinNhan {
+  @Prop({ required: true, trim: true })
+  hoTen: string;
+
+  @Prop({ required: true, trim: true })
+  soDienThoai: string;
+
+  @Prop({ required: true, trim: true })
+  diaChi: string; // Địa chỉ giao hàng
+}
+
+export const ThongTinNhanSchema =
+  SchemaFactory.createForClass(ThongTinNhan);
+
+// ─── Main: Order (khớp FE Order interface) ───────────────────────────────────
 export type OrderDocument = HydratedDocument<Order>;
 
 @Schema({ timestamps: true })
 export class Order {
-  /** Nullable: khách không cần đăng nhập */
-  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null })
-  user_id: mongoose.Types.ObjectId | null;
-
-  @Prop({ required: true, trim: true })
-  customer_name: string;
-
-  @Prop({ required: true, trim: true })
-  customer_phone: string;
-
-  @Prop({ required: true, trim: true })
-  customer_address: string;
-
-  @Prop({
-    required: true,
-    enum: OrderStatus,
-    default: OrderStatus.CHO_XAC_NHAN,
-  })
-  status: OrderStatus;
+  @Prop({ required: true, unique: true })
+  orderId: string; // e.g. "ORD-1713161234567" — FE gọi là `id`
 
   @Prop({ type: [OrderItemSchema], required: true })
   items: OrderItem[];
 
+  @Prop({ type: ThongTinNhanSchema, required: true })
+  thongTinNhan: ThongTinNhan;
+
   @Prop({ required: true, min: 0 })
-  total_price: number;
+  tongTien: number;
 
-  @Prop({ default: 0, min: 0 })
-  delivery_fee: number;
+  @Prop({
+    required: true,
+    enum: TrangThaiDonHang,
+    default: TrangThaiDonHang.CHO_XAC_NHAN,
+  })
+  trangThai: TrangThaiDonHang;
 
-  @Prop({ default: 0, min: 0 })
-  discount: number;
+  @Prop({ required: true })
+  taoLuc: string; // ISO string — FE dùng `taoLuc`
 }
 
 export const OrderSchema = SchemaFactory.createForClass(Order);
 
 // Indexes để tra cứu đơn hàng nhanh
-OrderSchema.index({ status: 1 });
-OrderSchema.index({ user_id: 1 });
-OrderSchema.index({ createdAt: -1 });
+OrderSchema.index({ trangThai: 1 });
+OrderSchema.index({ orderId: 1 });
+OrderSchema.index({ taoLuc: -1 });

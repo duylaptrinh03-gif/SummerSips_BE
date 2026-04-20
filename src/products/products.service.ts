@@ -9,10 +9,15 @@ import { Product, ProductDocument } from './schemas/product.schema';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 
+// ── Query params khớp FE SearchFilters & SortKey ────────────────────────────
 export interface FindAllProductsQuery {
-  category?: string;
+  category?: string;  // "Cà Phê", "Trà Sữa"… (bỏ qua nếu "Tất cả")
   tag?: string;
   limit?: number;
+  search?: string;     // FE SearchFilters.query
+  minPrice?: number;   // FE SearchFilters.minPrice
+  maxPrice?: number;   // FE SearchFilters.maxPrice
+  sort?: string;       // FE SortKey: "default" | "price_asc" | "price_desc" | "name_asc" | "popular"
 }
 
 @Injectable()
@@ -30,22 +35,57 @@ export class ProductsService {
   async findAll(query: FindAllProductsQuery): Promise<ProductDocument[]> {
     const filter: Record<string, unknown> = { isAvailable: true };
 
-    if (query.category) {
-      if (!isValidObjectId(query.category)) {
-        throw new BadRequestException('category phải là một ObjectId hợp lệ');
-      }
-      filter.category_id = query.category;
+    // Filter theo category (string)
+    if (query.category && query.category !== 'Tất cả') {
+      filter.category = query.category;
     }
 
+    // Filter theo tag
     if (query.tag) {
       filter.tag = query.tag;
+    }
+
+    // Search theo tên (regex case-insensitive)
+    if (query.search) {
+      filter.name = { $regex: query.search, $options: 'i' };
+    }
+
+    // Filter theo khoảng giá
+    if (query.minPrice !== undefined || query.maxPrice !== undefined) {
+      filter.basePrice = {};
+      if (query.minPrice !== undefined) {
+        (filter.basePrice as Record<string, number>).$gte = query.minPrice;
+      }
+      if (query.maxPrice !== undefined) {
+        (filter.basePrice as Record<string, number>).$lte = query.maxPrice;
+      }
+    }
+
+    // Sort theo FE SortKey
+    let sortOption: Record<string, 1 | -1> = {};
+    switch (query.sort) {
+      case 'price_asc':
+        sortOption = { basePrice: 1 };
+        break;
+      case 'price_desc':
+        sortOption = { basePrice: -1 };
+        break;
+      case 'name_asc':
+        sortOption = { name: 1 };
+        break;
+      case 'popular':
+        sortOption = { soldCount: -1 };
+        break;
+      default:
+        sortOption = { createdAt: -1 }; // default: mới nhất
+        break;
     }
 
     const limit = query.limit && query.limit > 0 ? query.limit : 0;
 
     return this.productModel
       .find(filter)
-      .populate('category_id', 'name')
+      .sort(sortOption)
       .limit(limit)
       .lean()
       .exec();
@@ -56,10 +96,7 @@ export class ProductsService {
       throw new BadRequestException('id không hợp lệ');
     }
 
-    const product = await this.productModel
-      .findById(id)
-      .populate('category_id', 'name')
-      .exec();
+    const product = await this.productModel.findById(id).exec();
 
     if (!product) {
       throw new NotFoundException(`Không tìm thấy sản phẩm với id: ${id}`);
@@ -78,7 +115,6 @@ export class ProductsService {
 
     const updated = await this.productModel
       .findByIdAndUpdate(id, { $set: updateProductDto }, { new: true })
-      .populate('category_id', 'name')
       .exec();
 
     if (!updated) {

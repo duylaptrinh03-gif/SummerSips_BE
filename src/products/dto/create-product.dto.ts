@@ -3,26 +3,33 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
-  IsMongoId,
   IsNumber,
   IsOptional,
   IsString,
+  Max,
   Min,
   ValidateNested,
 } from 'class-validator';
+import { CATEGORIES } from '../schemas/product.schema';
 
-// ─── Nested DTO: ProductSize ──────────────────────────────────────────────────
-export class CreateProductSizeDto {
-  @IsEnum(['S', 'M', 'L'], { message: 'size_name phải là S, M hoặc L' })
-  size_name: 'S' | 'M' | 'L';
+// ─── Nested DTO: SizeOption ───────────────────────────────────────────────────
+export class CreateSizeOptionDto {
+  @IsEnum(['S', 'M', 'L'], { message: 'name phải là S, M hoặc L' })
+  name: 'S' | 'M' | 'L';
 
-  @IsNumber({}, { message: 'extra_price phải là số' })
+  @IsString()
+  label: string; // "Nhỏ", "Vừa", "Lớn"
+
+  @IsNumber({}, { message: 'extraPrice phải là số' })
   @Min(0)
-  extra_price: number;
+  extraPrice: number;
 }
 
-// ─── Nested DTO: ProductTopping ───────────────────────────────────────────────
-export class CreateProductToppingDto {
+// ─── Nested DTO: ToppingOption ────────────────────────────────────────────────
+export class CreateToppingOptionDto {
+  @IsString()
+  id: string;
+
   @IsString()
   name: string;
 
@@ -48,26 +55,39 @@ export class CreateProductDto {
   @IsString()
   description?: string;
 
-  @IsOptional()
-  @IsBoolean()
-  isAvailable?: boolean;
+  @IsEnum(CATEGORIES, {
+    message: `category phải là một trong: ${CATEGORIES.join(', ')}`,
+  })
+  category: string;
 
   @IsOptional()
   @IsString()
   tag?: string;
 
-  @IsMongoId({ message: 'category_id phải là một ObjectId hợp lệ' })
-  category_id: string;
+  @IsOptional()
+  @IsBoolean()
+  isAvailable?: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(5)
+  rating?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  soldCount?: number;
 
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => CreateProductSizeDto)
-  sizes?: CreateProductSizeDto[];
+  @Type(() => CreateSizeOptionDto)
+  sizeOptions?: CreateSizeOptionDto[];
 
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => CreateProductToppingDto)
-  toppings?: CreateProductToppingDto[];
+  @Type(() => CreateToppingOptionDto)
+  toppingOptions?: CreateToppingOptionDto[];
 }

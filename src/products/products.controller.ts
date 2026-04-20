@@ -26,19 +26,27 @@ export class ProductsController {
   }
 
   /**
-   * GET /api/v1/drinks?category=<id>&tag=<tag>&limit=<n>
-   * Lấy danh sách sản phẩm hỗ trợ filter
+   * GET /api/v1/drinks?category=<string>&tag=<tag>&limit=<n>&search=<q>&minPrice=<n>&maxPrice=<n>&sort=<key>
+   * Lấy danh sách sản phẩm hỗ trợ filter, search, sort
    */
   @Get()
   findAll(
     @Query('category') category?: string,
     @Query('tag') tag?: string,
     @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('minPrice') minPrice?: string,
+    @Query('maxPrice') maxPrice?: string,
+    @Query('sort') sort?: string,
   ) {
     return this.productsService.findAll({
       category,
       tag,
       limit: limit ? parseInt(limit, 10) : undefined,
+      search,
+      minPrice: minPrice ? parseInt(minPrice, 10) : undefined,
+      maxPrice: maxPrice ? parseInt(maxPrice, 10) : undefined,
+      sort,
     });
   }
 

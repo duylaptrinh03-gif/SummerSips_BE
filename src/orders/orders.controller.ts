@@ -9,7 +9,7 @@ export class OrdersController {
 
   /**
    * POST /api/v1/orders
-   * Khách đặt hàng — backend tự map giá từ Product, áp dụng coupon
+   * Khách đặt hàng — FE gửi full CartItem[] và thongTinNhan
    */
   @Post()
   create(@Body() createOrderDto: CreateOrderDto) {
@@ -27,7 +27,7 @@ export class OrdersController {
 
   /**
    * GET /api/v1/orders/:id
-   * Lấy chi tiết 1 đơn hàng
+   * Lấy chi tiết 1 đơn hàng (hỗ trợ cả MongoDB _id và orderId "ORD-xxx")
    */
   @Get(':id')
   findOne(@Param('id') id: string) {
