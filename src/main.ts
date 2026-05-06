@@ -11,7 +11,7 @@ async function bootstrap() {
 
   // Global Interceptor: chuẩn hóa dữ liệu trả về { statusCode, data, totalResult }
   app.useGlobalInterceptors(new TransformInterceptor());
-
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
   // Global ValidationPipe: tự động validate DTO, transform payload, bỏ qua field không khai báo
   app.useGlobalPipes(
     new ValidationPipe({
@@ -31,9 +31,9 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
-  await app.listen(process.env.PORT || 3000, '0.0.0.0');
+  await app.listen(process.env.PORT || 3001, '0.0.0.0');
   console.log(
-    `🚀 Server running on: http://localhost:${process.env.PORT || 3000}/api/v1`,
+    `🚀 Server running on: http://localhost:${process.env.PORT || 3001}/api/v1`,
   );
 }
 bootstrap();

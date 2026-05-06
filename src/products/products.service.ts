@@ -11,13 +11,13 @@ import { UpdateProductDto } from './dto/update-product.dto';
 
 // ── Query params khớp FE SearchFilters & SortKey ────────────────────────────
 export interface FindAllProductsQuery {
-  category?: string;  // "Cà Phê", "Trà Sữa"… (bỏ qua nếu "Tất cả")
+  category?: string; // "Cà Phê", "Trà Sữa"… (bỏ qua nếu "Tất cả")
   tag?: string;
   limit?: number;
-  search?: string;     // FE SearchFilters.query
-  minPrice?: number;   // FE SearchFilters.minPrice
-  maxPrice?: number;   // FE SearchFilters.maxPrice
-  sort?: string;       // FE SortKey: "default" | "price_asc" | "price_desc" | "name_asc" | "popular"
+  search?: string; // FE SearchFilters.query
+  minPrice?: number; // FE SearchFilters.minPrice
+  maxPrice?: number; // FE SearchFilters.maxPrice
+  sort?: string; // FE SortKey: "default" | "price_asc" | "price_desc" | "name_asc" | "popular"
 }
 
 @Injectable()
