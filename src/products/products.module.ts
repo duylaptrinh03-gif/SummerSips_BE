@@ -10,6 +10,6 @@ import { Product, ProductSchema } from './schemas/product.schema';
   ],
   controllers: [ProductsController],
   providers: [ProductsService],
-  exports: [ProductsService, MongooseModule], // Export để OrdersModule dùng ProductModel khi tính giá
+  exports: [ProductsService, MongooseModule], // Export để OrdersModule dùng ProductModel khi tính giá.
 })
 export class ProductsModule {}
