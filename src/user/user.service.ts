@@ -31,7 +31,7 @@ export class UserService {
 
   async update(id: string, dto: UpdateUserDto): Promise<UserDocument | null> {
     return this.userModel
-      .findByIdAndUpdate(id, { $set: dto }, { new: true })
+      .findByIdAndUpdate(id, { $set: dto }, { returnDocument: 'after' })
       .select('-password')
       .exec();
   }

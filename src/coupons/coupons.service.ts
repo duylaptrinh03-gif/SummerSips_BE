@@ -26,7 +26,7 @@ export class CouponsService {
 
   async update(id: string, dto: Partial<CreateCouponDto>): Promise<CouponDocument> {
     const coupon = await this.couponModel
-      .findByIdAndUpdate(id, { $set: dto }, { new: true })
+      .findByIdAndUpdate(id, { $set: dto }, { returnDocument: 'after' })
       .exec();
     if (!coupon) throw new NotFoundException(`Coupon not found: ${id}`);
     return coupon;

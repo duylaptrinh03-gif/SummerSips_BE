@@ -114,7 +114,7 @@ export class ProductsService {
     }
 
     const updated = await this.productModel
-      .findByIdAndUpdate(id, { $set: updateProductDto }, { new: true })
+      .findByIdAndUpdate(id, { $set: updateProductDto }, { returnDocument: 'after' })
       .exec();
 
     if (!updated) {

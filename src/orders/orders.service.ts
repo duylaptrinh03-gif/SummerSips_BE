@@ -5,10 +5,19 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, isValidObjectId } from 'mongoose';
-import { Order, OrderDocument, OrderStatus } from './schemas/order.schema';
+import {
+  Order,
+  OrderDocument,
+  OrderStatus,
+  ORDER_STATUS_LABEL,
+} from './schemas/order.schema';
 import { Product, ProductDocument } from '../products/schemas/product.schema';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import {
+  OrdersGateway,
+  OrderStatusUpdatedPayload,
+} from './orders.gateway';
 
 @Injectable()
 export class OrdersService {
@@ -17,6 +26,7 @@ export class OrdersService {
     private readonly orderModel: Model<OrderDocument>,
     @InjectModel(Product.name)
     private readonly productModel: Model<ProductDocument>,
+    private readonly ordersGateway: OrdersGateway,
   ) {}
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -39,7 +49,10 @@ export class OrdersService {
 
   // ─── Create Order ──────────────────────────────────────────────────────────
 
-  async create(createOrderDto: CreateOrderDto, userId?: string): Promise<OrderDocument> {
+  async create(
+    createOrderDto: CreateOrderDto,
+    userId?: string,
+  ): Promise<OrderDocument> {
     const { recipientInfo, items } = createOrderDto;
 
     const totalPrice = this.calculateTotalPrice(items);
@@ -82,7 +95,7 @@ export class OrdersService {
             $inc: { soldCount: item.quantity },
           })
           .exec()
-          .catch(() => null), // bỏ qua nếu drinkId không hợp lệ
+          .catch(() => null),
       ),
     );
 
@@ -132,33 +145,47 @@ export class OrdersService {
     id: string,
     updateStatusDto: UpdateOrderStatusDto,
   ): Promise<OrderDocument> {
-    let order: OrderDocument | null;
+    // Lấy order hiện tại để ghi nhận oldStatus trước khi update
+    const currentOrder = await this.findOne(id);
+    const oldStatus = currentOrder.status;
+
+    let updatedOrder: OrderDocument | null;
 
     if (id.startsWith('ORD-')) {
-      order = await this.orderModel
+      updatedOrder = await this.orderModel
         .findOneAndUpdate(
           { orderId: id },
           { $set: { status: updateStatusDto.status } },
-          { new: true },
+          { returnDocument: 'after' },
         )
         .exec();
     } else {
-      if (!isValidObjectId(id)) {
-        throw new BadRequestException('Invalid id');
-      }
-      order = await this.orderModel
+      updatedOrder = await this.orderModel
         .findByIdAndUpdate(
           id,
           { $set: { status: updateStatusDto.status } },
-          { new: true },
+          { returnDocument: 'after' },
         )
         .exec();
     }
 
-    if (!order) {
+    if (!updatedOrder) {
       throw new NotFoundException(`Order not found: ${id}`);
     }
 
-    return order;
+    // Emit realtime event nếu order thuộc về user đăng nhập
+    if (updatedOrder.userId) {
+      const payload: OrderStatusUpdatedPayload = {
+        orderId: updatedOrder.orderId,
+        userId: updatedOrder.userId,
+        oldStatus,
+        newStatus: updatedOrder.status,
+        message: ORDER_STATUS_LABEL[updatedOrder.status],
+        updatedAt: new Date().toISOString(),
+      };
+      this.ordersGateway.emitOrderStatusUpdated(updatedOrder.userId, payload);
+    }
+
+    return updatedOrder;
   }
 }
