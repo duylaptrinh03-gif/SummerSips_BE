@@ -99,6 +99,9 @@ export class Order {
   @Prop({ required: true, unique: true })
   orderId: string; // e.g. "ORD-1713161234567"
 
+  @Prop({ type: String, index: true, default: null })
+  userId: string | null; // null nếu guest checkout
+
   @Prop({ type: [OrderItemSchema], required: true })
   items: OrderItem[];
 

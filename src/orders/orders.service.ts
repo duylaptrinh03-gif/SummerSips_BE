@@ -39,7 +39,7 @@ export class OrdersService {
 
   // ─── Create Order ──────────────────────────────────────────────────────────
 
-  async create(createOrderDto: CreateOrderDto): Promise<OrderDocument> {
+  async create(createOrderDto: CreateOrderDto, userId?: string): Promise<OrderDocument> {
     const { recipientInfo, items } = createOrderDto;
 
     const totalPrice = this.calculateTotalPrice(items);
@@ -47,6 +47,7 @@ export class OrdersService {
 
     const order = new this.orderModel({
       orderId,
+      userId: userId ?? null,
       items: items.map((item) => ({
         cartId: item.cartId,
         drinkId: item.drinkId,
@@ -88,10 +89,20 @@ export class OrdersService {
     return savedOrder;
   }
 
-  // ─── Find All ──────────────────────────────────────────────────────────────
+  // ─── Find All (admin) ──────────────────────────────────────────────────────
 
   async findAll(): Promise<OrderDocument[]> {
     return this.orderModel.find().sort({ orderedAt: -1 }).lean().exec();
+  }
+
+  // ─── Find My Orders (authenticated user) ──────────────────────────────────
+
+  async findMyOrders(userId: string): Promise<OrderDocument[]> {
+    return this.orderModel
+      .find({ userId })
+      .sort({ orderedAt: -1 })
+      .lean()
+      .exec();
   }
 
   // ─── Find One ──────────────────────────────────────────────────────────────
