@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd /c/Users/duypd/Duan/TNE && find . -maxdepth 2 -type d | head -20)",
+      "Read(//c/Users/duypd/Duan/TNE/**)",
+      "Bash(mkdir -p \"c:/Users/duypd/Duan/TNE/drink-app/src/components/ChatBot\")",
+      "Bash(mkdir -p \"c:/Users/duypd/Duan/TNE/drink-app/src/app/\\(main\\)/admin/chat\")",
+      "Bash(npx tsc *)",
+      "Skill(artifact-design)",
+      "Skill(artifact-design:*)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\duypd\\Duan\\TNE\\drink-app\\src\\types",
+      "c:\\Users\\duypd\\Duan\\TNE\\drink-app\\src\\store",
+      "c:\\Users\\duypd\\Duan\\TNE\\drink-app\\src\\services",
+      "c:\\Users\\duypd\\Duan\\TNE\\drink-app\\src\\components",
+      "c:\\Users\\duypd\\Duan\\TNE\\drink-app\\src\\app\\(main)\\admin",
+      "c:\\Users\\duypd\\Duan\\TNE\\drink-app\\src\\app"
+    ]
+  }
+}
