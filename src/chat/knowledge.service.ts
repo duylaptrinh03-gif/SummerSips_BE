@@ -7,20 +7,30 @@ import { Faq, FaqDocument } from './schemas/faq.schema';
 @Injectable()
 export class KnowledgeService {
   constructor(
-    @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
+    @InjectModel(Product.name)
+    private readonly productModel: Model<ProductDocument>,
     @InjectModel(Faq.name) private readonly faqModel: Model<FaqDocument>,
   ) {}
 
-  async buildSystemPrompt(userContext?: string, orderContext?: string): Promise<string> {
+  async buildSystemPrompt(
+    userContext?: string,
+    orderContext?: string,
+  ): Promise<string> {
     const [products, faqs] = await Promise.all([
       this.productModel
         .find({ isAvailable: true })
-        .select('name category basePrice sizeOptions toppingOptions description tag rating')
+        .select(
+          'name category basePrice sizeOptions toppingOptions description tag rating',
+        )
         .sort({ soldCount: -1 })
         .limit(50)
         .lean()
         .exec(),
-      this.faqModel.find({ isActive: true }).select('question answer').lean().exec(),
+      this.faqModel
+        .find({ isActive: true })
+        .select('question answer')
+        .lean()
+        .exec(),
     ]);
 
     const productList = products
@@ -35,7 +45,9 @@ export class KnowledgeService {
         const sizeInfo = sizes ? `  Kích cỡ: ${sizes}` : '';
         const toppingInfo = toppings ? `  Topping: ${toppings}` : '';
         const tagInfo = p.tag ? `  Tag: ${p.tag}` : '';
-        return [baseInfo, sizeInfo, toppingInfo, tagInfo].filter(Boolean).join('\n');
+        return [baseInfo, sizeInfo, toppingInfo, tagInfo]
+          .filter(Boolean)
+          .join('\n');
       })
       .join('\n');
 
@@ -52,6 +64,7 @@ NGUYÊN TẮC:
 - Nếu không có thông tin phù hợp, hãy nói thật và đề nghị khách liên hệ cửa hàng.
 - Câu trả lời ngắn gọn, tối đa 3-4 câu trừ khi cần liệt kê sản phẩm.
 - Đừng lặp lại câu hỏi của khách.
+- QUAN TRỌNG: Khi câu hỏi của khách khớp hoặc liên quan đến một câu trong mục FAQ bên dưới, bắt buộc phải trả lời chính xác theo nội dung "Đáp" của FAQ đó. Không được tự diễn giải hay thêm bớt nội dung ngoài FAQ.
 
 THÔNG TIN CỬA HÀNG:
 - Tên: SummerSips
