@@ -6,6 +6,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, isValidObjectId } from 'mongoose';
 import { Order, OrderDocument, OrderStatus } from './schemas/order.schema';
+import { Product, ProductDocument } from '../products/schemas/product.schema';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 
@@ -14,6 +15,8 @@ export class OrdersService {
   constructor(
     @InjectModel(Order.name)
     private readonly orderModel: Model<OrderDocument>,
+    @InjectModel(Product.name)
+    private readonly productModel: Model<ProductDocument>,
   ) {}
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -68,7 +71,21 @@ export class OrdersService {
       orderedAt: new Date().toISOString(),
     });
 
-    return order.save();
+    const savedOrder = await order.save();
+
+    // Tăng soldCount cho từng sản phẩm trong đơn hàng
+    await Promise.all(
+      items.map((item) =>
+        this.productModel
+          .findByIdAndUpdate(item.drinkId, {
+            $inc: { soldCount: item.quantity },
+          })
+          .exec()
+          .catch(() => null), // bỏ qua nếu drinkId không hợp lệ
+      ),
+    );
+
+    return savedOrder;
   }
 
   // ─── Find All ──────────────────────────────────────────────────────────────
