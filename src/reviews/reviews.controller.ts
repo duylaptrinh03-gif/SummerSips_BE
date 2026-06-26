@@ -28,7 +28,7 @@ export class ReviewsController {
 
   /**
    * POST /api/v1/reviews
-   * Tạo đánh giá — chỉ user đã đăng nhập và có đơn hàng completed
+   * Gửi đánh giá hàng loạt cho các sản phẩm trong 1 đơn hàng đã hoàn thành
    */
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -37,20 +37,12 @@ export class ReviewsController {
   }
 
   /**
-   * GET /api/v1/reviews/product/:productId?page=1&limit=10
-   * Lấy tất cả đánh giá của 1 sản phẩm (public)
+   * GET /api/v1/reviews/drink/:drinkId
+   * Lấy tất cả đánh giá của 1 sản phẩm (public, tối đa 50 reviews mới nhất)
    */
-  @Get('product/:productId')
-  findByProduct(
-    @Param('productId') productId: string,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-  ) {
-    return this.reviewsService.findByProduct(
-      productId,
-      page ? parseInt(page, 10) : 1,
-      limit ? parseInt(limit, 10) : 10,
-    );
+  @Get('drink/:drinkId')
+  findByDrink(@Param('drinkId') drinkId: string) {
+    return this.reviewsService.findByDrink(drinkId);
   }
 
   /**

@@ -15,11 +15,12 @@ export class Review {
   userAvatar: string;
 
   @Prop({ required: true, index: true })
-  productId: string;
+  drinkId: string;
 
   @Prop({ required: true })
-  productName: string;
+  drinkName: string;
 
+  // orderId là MongoDB _id của Order (string)
   @Prop({ required: true })
   orderId: string;
 
@@ -32,5 +33,5 @@ export class Review {
 
 export const ReviewSchema = SchemaFactory.createForClass(Review);
 
-ReviewSchema.index({ productId: 1, createdAt: -1 });
-ReviewSchema.index({ userId: 1, productId: 1, orderId: 1 }, { unique: true });
+ReviewSchema.index({ drinkId: 1, createdAt: -1 });
+ReviewSchema.index({ userId: 1, drinkId: 1, orderId: 1 }, { unique: true });
