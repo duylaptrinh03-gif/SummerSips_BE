@@ -19,8 +19,19 @@ export interface OrderStatusUpdatedPayload {
   updatedAt: string;
 }
 
+export interface NewOrderPayload {
+  orderId: string;
+  customerName: string;
+  totalPrice: number;
+  itemCount: number;
+  createdAt: string;
+}
+
 @WebSocketGateway({
-  cors: { origin: '*' },
+  cors: {
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    credentials: true,
+  },
   transports: ['websocket', 'polling'],
 })
 export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -45,16 +56,25 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return;
       }
 
-      const payload = this.jwtService.verify<{ sub: string; email: string }>(
-        token,
-        { secret: this.configService.get<string>('JWT_SECRET') },
-      );
+      const payload = this.jwtService.verify<{
+        sub: string;
+        email: string;
+        role?: string;
+      }>(token, {
+        secret: this.configService.get<string>('JWT_SECRET'),
+      });
 
       client.data.userId = payload.sub;
       await client.join(`user_${payload.sub}`);
       this.logger.log(
         `Client ${client.id} authenticated → room user_${payload.sub}`,
       );
+
+      // Admin join thêm room "admin" để nhận new_order events
+      if (payload.role === 'admin') {
+        await client.join('admin');
+        this.logger.log(`Admin ${client.id} joined admin room`);
+      }
     } catch {
       this.logger.warn(`Client ${client.id} sent invalid token`);
     }
@@ -70,5 +90,10 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
     payload: OrderStatusUpdatedPayload,
   ): void {
     this.server.to(`user_${userId}`).emit('order_status_updated', payload);
+  }
+
+  /** Emit new_order đến tất cả admin đang online */
+  emitNewOrder(payload: NewOrderPayload): void {
+    this.server.to('admin').emit('new_order', payload);
   }
 }

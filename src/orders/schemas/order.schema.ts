@@ -111,6 +111,15 @@ export class Order {
   @Prop({ required: true, min: 0 })
   totalPrice: number;
 
+  @Prop({ type: Number, default: 0, min: 0 })
+  deliveryFee: number;
+
+  @Prop({ type: String, default: null })
+  couponCode: string | null;
+
+  @Prop({ type: Number, default: 0, min: 0 })
+  discountAmount: number;
+
   @Prop({
     required: true,
     enum: OrderStatus,

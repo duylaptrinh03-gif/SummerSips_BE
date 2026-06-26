@@ -44,12 +44,32 @@ export class CouponsService {
     type: CouponType;
     message: string;
   }> {
+    const sanitizedCode = dto.code.toUpperCase().replace(/[^A-Z0-9_-]/g, '');
     const coupon = await this.couponModel
-      .findOne({ code: dto.code.toUpperCase(), is_active: true })
+      .findOne({ code: sanitizedCode, is_active: true })
       .exec();
 
     if (!coupon) {
-      throw new BadRequestException('Mã giảm giá không hợp lệ hoặc đã hết hạn');
+      throw new BadRequestException('Mã giảm giá không hợp lệ hoặc không tồn tại');
+    }
+
+    // Kiểm tra ngày hết hạn
+    if (coupon.expiredAt && new Date() > new Date(coupon.expiredAt)) {
+      throw new BadRequestException('Mã giảm giá đã hết hạn sử dụng');
+    }
+
+    // Kiểm tra số lần dùng
+    if (coupon.maxUsage !== null && coupon.maxUsage !== undefined) {
+      if (coupon.usedCount >= coupon.maxUsage) {
+        throw new BadRequestException('Mã giảm giá đã được sử dụng hết lượt');
+      }
+    }
+
+    // Kiểm tra giá trị đơn hàng tối thiểu
+    if (coupon.minOrderValue && dto.orderTotal < coupon.minOrderValue) {
+      throw new BadRequestException(
+        `Đơn hàng tối thiểu ${coupon.minOrderValue.toLocaleString('vi-VN')}đ để áp dụng mã này`,
+      );
     }
 
     let discountAmount = 0;
@@ -57,17 +77,22 @@ export class CouponsService {
     if (coupon.type === CouponType.PERCENT) {
       discountAmount = Math.round((dto.orderTotal * coupon.discount_value) / 100);
     } else if (coupon.type === CouponType.FREESHIP) {
-      // Freeship: discount_value = phí ship được miễn
       discountAmount = coupon.discount_value;
     }
+
+    // Tăng usedCount
+    await this.couponModel
+      .findByIdAndUpdate(coupon._id, { $inc: { usedCount: 1 } })
+      .exec();
 
     return {
       valid: true,
       discountAmount,
       type: coupon.type,
-      message: coupon.type === CouponType.PERCENT
-        ? `Giảm ${coupon.discount_value}% — tiết kiệm ${discountAmount.toLocaleString('vi-VN')}đ`
-        : `Miễn phí vận chuyển`,
+      message:
+        coupon.type === CouponType.PERCENT
+          ? `Giảm ${coupon.discount_value}% — tiết kiệm ${discountAmount.toLocaleString('vi-VN')}đ`
+          : `Miễn phí vận chuyển`,
     };
   }
 }

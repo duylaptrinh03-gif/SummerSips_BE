@@ -1,5 +1,6 @@
 import {
   IsBoolean,
+  IsDateString,
   IsEnum,
   IsNumber,
   IsOptional,
@@ -24,4 +25,21 @@ export class CreateCouponDto {
   @IsOptional()
   @IsBoolean()
   is_active?: boolean;
+
+  /** ISO date string — để trống = không giới hạn thời gian */
+  @IsOptional()
+  @IsDateString()
+  expiredAt?: string;
+
+  /** Số lần tối đa dùng được — để trống = không giới hạn */
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  maxUsage?: number;
+
+  /** Giá trị đơn hàng tối thiểu — mặc định 0 */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  minOrderValue?: number;
 }

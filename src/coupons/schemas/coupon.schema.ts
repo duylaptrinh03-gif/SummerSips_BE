@@ -21,6 +21,22 @@ export class Coupon {
 
   @Prop({ default: true })
   is_active: boolean;
+
+  /** Ngày hết hạn — null = không giới hạn */
+  @Prop({ type: Date, default: null })
+  expiredAt: Date | null;
+
+  /** Số lần tối đa được dùng — null = không giới hạn */
+  @Prop({ type: Number, default: null, min: 1 })
+  maxUsage: number | null;
+
+  /** Số lần đã dùng */
+  @Prop({ type: Number, default: 0, min: 0 })
+  usedCount: number;
+
+  /** Giá trị đơn hàng tối thiểu để áp dụng mã — 0 = không yêu cầu */
+  @Prop({ type: Number, default: 0, min: 0 })
+  minOrderValue: number;
 }
 
 export const CouponSchema = SchemaFactory.createForClass(Coupon);

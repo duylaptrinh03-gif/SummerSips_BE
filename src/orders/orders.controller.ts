@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
@@ -27,24 +27,38 @@ export class OrdersController {
   }
 
   /**
-   * GET /api/v1/orders/my
-   * Lịch sử đơn hàng của user hiện tại
+   * GET /api/v1/orders/my?page=1&limit=10
+   * Lịch sử đơn hàng của user hiện tại (có phân trang)
    */
   @Get('my')
   @UseGuards(JwtAuthGuard)
-  getMyOrders(@Request() req: AuthenticatedRequest) {
-    return this.ordersService.findMyOrders(req.user!.id);
+  getMyOrders(
+    @Request() req: AuthenticatedRequest,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.ordersService.findMyOrders(
+      req.user!.id,
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 10,
+    );
   }
 
   /**
-   * GET /api/v1/orders
-   * Lấy danh sách tất cả đơn hàng (Admin)
+   * GET /api/v1/orders?page=1&limit=20
+   * Lấy danh sách tất cả đơn hàng (Admin, có phân trang)
    */
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  findAll() {
-    return this.ordersService.findAll();
+  findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.ordersService.findAll(
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 20,
+    );
   }
 
   /**
@@ -54,6 +68,16 @@ export class OrdersController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.ordersService.findOne(id);
+  }
+
+  /**
+   * PATCH /api/v1/orders/:id/cancel
+   * Hủy đơn hàng — chỉ owner mới được hủy, chỉ khi trạng thái là pending
+   */
+  @Patch(':id/cancel')
+  @UseGuards(JwtAuthGuard)
+  cancelOrder(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+    return this.ordersService.cancel(id, req.user!.id);
   }
 
   /**

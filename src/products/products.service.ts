@@ -14,10 +14,19 @@ export interface FindAllProductsQuery {
   category?: string; // "Cà Phê", "Trà Sữa"… (bỏ qua nếu "Tất cả")
   tag?: string;
   limit?: number;
+  page?: number; // nếu truyền vào → trả về PaginatedResult thay vì array
   search?: string; // FE SearchFilters.query
   minPrice?: number; // FE SearchFilters.minPrice
   maxPrice?: number; // FE SearchFilters.maxPrice
   sort?: string; // FE SortKey: "default" | "price_asc" | "price_desc" | "name_asc" | "popular"
+}
+
+export interface PaginatedResult<T> {
+  data: T[];
+  total: number;
+  page: number;
+  totalPages: number;
+  limit: number;
 }
 
 @Injectable()
@@ -32,25 +41,24 @@ export class ProductsService {
     return created.save();
   }
 
-  async findAll(query: FindAllProductsQuery): Promise<ProductDocument[]> {
+  async findAll(
+    query: FindAllProductsQuery,
+  ): Promise<ProductDocument[] | PaginatedResult<ProductDocument>> {
     const filter: Record<string, unknown> = { isAvailable: true };
 
-    // Filter theo category (string)
     if (query.category && query.category !== 'Tất cả') {
       filter.category = query.category;
     }
 
-    // Filter theo tag
     if (query.tag) {
       filter.tag = query.tag;
     }
 
-    // Search theo tên (regex case-insensitive)
     if (query.search) {
-      filter.name = { $regex: query.search, $options: 'i' };
+      const escaped = query.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      filter.name = { $regex: escaped, $options: 'i' };
     }
 
-    // Filter theo khoảng giá
     if (query.minPrice !== undefined || query.maxPrice !== undefined) {
       filter.basePrice = {};
       if (query.minPrice !== undefined) {
@@ -61,7 +69,6 @@ export class ProductsService {
       }
     }
 
-    // Sort theo FE SortKey
     let sortOption: Record<string, 1 | -1> = {};
     switch (query.sort) {
       case 'price_asc':
@@ -77,18 +84,31 @@ export class ProductsService {
         sortOption = { soldCount: -1 };
         break;
       default:
-        sortOption = { createdAt: -1 }; // default: mới nhất
+        sortOption = { createdAt: -1 };
         break;
     }
 
-    const limit = query.limit && query.limit > 0 ? query.limit : 0;
+    // Nếu có page → trả về paginated; không có → behavior cũ (backward compat)
+    if (query.page !== undefined && query.page > 0) {
+      const pageSize = query.limit && query.limit > 0 ? query.limit : 12;
+      const skip = (query.page - 1) * pageSize;
 
-    return this.productModel
-      .find(filter)
-      .sort(sortOption)
-      .limit(limit)
-      .lean()
-      .exec();
+      const [data, total] = await Promise.all([
+        this.productModel.find(filter).sort(sortOption).skip(skip).limit(pageSize).lean().exec(),
+        this.productModel.countDocuments(filter).exec(),
+      ]);
+
+      return {
+        data,
+        total,
+        page: query.page,
+        totalPages: Math.ceil(total / pageSize),
+        limit: pageSize,
+      };
+    }
+
+    const limit = query.limit && query.limit > 0 ? query.limit : 0;
+    return this.productModel.find(filter).sort(sortOption).limit(limit).lean().exec();
   }
 
   async findOne(id: string): Promise<ProductDocument> {

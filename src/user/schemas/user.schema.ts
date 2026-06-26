@@ -27,6 +27,23 @@ export class User {
 
   @Prop({ type: String, default: '' })
   defaultAddress: string;
+
+  @Prop({ type: String, default: '🧑' })
+  avatar: string;
+
+  @Prop({
+    type: {
+      orderUpdates: { type: Boolean, default: true },
+      promotions: { type: Boolean, default: true },
+      newsletter: { type: Boolean, default: false },
+    },
+    default: () => ({ orderUpdates: true, promotions: true, newsletter: false }),
+  })
+  notifications: {
+    orderUpdates: boolean;
+    promotions: boolean;
+    newsletter: boolean;
+  };
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

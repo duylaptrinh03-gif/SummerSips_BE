@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, isValidObjectId } from 'mongoose';
@@ -17,6 +18,7 @@ import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import {
   OrdersGateway,
   OrderStatusUpdatedPayload,
+  NewOrderPayload,
 } from './orders.gateway';
 
 @Injectable()
@@ -53,23 +55,72 @@ export class OrdersService {
     createOrderDto: CreateOrderDto,
     userId?: string,
   ): Promise<OrderDocument> {
-    const { recipientInfo, items } = createOrderDto;
+    const { recipientInfo, items, deliveryFee = 0, couponCode = null, discountAmount = 0 } = createOrderDto;
 
-    const totalPrice = this.calculateTotalPrice(items);
+    // ── Lấy giá thực tế từ DB — không tin giá từ client ──────────────────────
+    const productIds = [...new Set(items.map((i) => i.drinkId))];
+    const products = await this.productModel
+      .find({ _id: { $in: productIds } })
+      .lean()
+      .exec();
+
+    const productMap = new Map(
+      products.map((p) => [p._id.toString(), p]),
+    );
+
+    const validatedItems = items.map((item) => {
+      const product = productMap.get(item.drinkId);
+      if (!product) {
+        throw new NotFoundException(
+          `Sản phẩm không tồn tại: ${item.drinkId}`,
+        );
+      }
+      if (!product.isAvailable) {
+        throw new BadRequestException(
+          `Sản phẩm "${product.name}" hiện không có sẵn`,
+        );
+      }
+
+      const sizeOption = product.sizeOptions?.find(
+        (s: { name: string; extraPrice: number }) => s.name === item.size,
+      );
+      const sizeExtraPrice = sizeOption?.extraPrice ?? 0;
+
+      const validatedToppings = (item.toppings ?? []).map((clientTop) => {
+        const dbTop = product.toppingOptions?.find(
+          (t: { id: string; price: number; name: string }) =>
+            t.id === clientTop.id,
+        );
+        return dbTop
+          ? { id: dbTop.id, name: dbTop.name, price: dbTop.price }
+          : { id: clientTop.id, name: clientTop.name, price: 0 };
+      });
+
+      return {
+        ...item,
+        name: product.name,
+        image: product.image ?? item.image ?? '',
+        basePrice: product.basePrice,
+        sizeExtraPrice,
+        toppings: validatedToppings,
+      };
+    });
+
+    const totalPrice = this.calculateTotalPrice(validatedItems);
     const orderId = `ORD-${Date.now()}`;
 
     const order = new this.orderModel({
       orderId,
       userId: userId ?? null,
-      items: items.map((item) => ({
+      items: validatedItems.map((item) => ({
         cartId: item.cartId,
         drinkId: item.drinkId,
         name: item.name,
-        image: item.image ?? '',
+        image: item.image,
         basePrice: item.basePrice,
         size: item.size,
         sizeExtraPrice: item.sizeExtraPrice,
-        toppings: item.toppings ?? [],
+        toppings: item.toppings,
         iceLevel: item.iceLevel,
         sugarLevel: item.sugarLevel,
         note: item.note ?? '',
@@ -81,11 +132,24 @@ export class OrdersService {
         address: recipientInfo.address,
       },
       totalPrice,
+      deliveryFee,
+      couponCode: couponCode || null,
+      discountAmount,
       status: OrderStatus.PENDING,
       orderedAt: new Date().toISOString(),
     });
 
     const savedOrder = await order.save();
+
+    // Notify admin realtime
+    const newOrderPayload: NewOrderPayload = {
+      orderId: savedOrder.orderId,
+      customerName: recipientInfo.fullName,
+      totalPrice,
+      itemCount: validatedItems.reduce((sum, i) => sum + i.quantity, 0),
+      createdAt: new Date().toISOString(),
+    };
+    this.ordersGateway.emitNewOrder(newOrderPayload);
 
     // Tăng soldCount cho từng sản phẩm trong đơn hàng
     await Promise.all(
@@ -104,18 +168,36 @@ export class OrdersService {
 
   // ─── Find All (admin) ──────────────────────────────────────────────────────
 
-  async findAll(): Promise<OrderDocument[]> {
-    return this.orderModel.find().sort({ orderedAt: -1 }).lean().exec();
+  async findAll(page = 1, limit = 20): Promise<{
+    data: OrderDocument[];
+    total: number;
+    page: number;
+    totalPages: number;
+    limit: number;
+  }> {
+    const skip = (page - 1) * limit;
+    const [data, total] = await Promise.all([
+      this.orderModel.find().sort({ orderedAt: -1 }).skip(skip).limit(limit).lean().exec(),
+      this.orderModel.countDocuments().exec(),
+    ]);
+    return { data, total, page, totalPages: Math.ceil(total / limit), limit };
   }
 
   // ─── Find My Orders (authenticated user) ──────────────────────────────────
 
-  async findMyOrders(userId: string): Promise<OrderDocument[]> {
-    return this.orderModel
-      .find({ userId })
-      .sort({ orderedAt: -1 })
-      .lean()
-      .exec();
+  async findMyOrders(userId: string, page = 1, limit = 10): Promise<{
+    data: OrderDocument[];
+    total: number;
+    page: number;
+    totalPages: number;
+    limit: number;
+  }> {
+    const skip = (page - 1) * limit;
+    const [data, total] = await Promise.all([
+      this.orderModel.find({ userId }).sort({ orderedAt: -1 }).skip(skip).limit(limit).lean().exec(),
+      this.orderModel.countDocuments({ userId }).exec(),
+    ]);
+    return { data, total, page, totalPages: Math.ceil(total / limit), limit };
   }
 
   // ─── Find One ──────────────────────────────────────────────────────────────
@@ -137,6 +219,49 @@ export class OrdersService {
     }
 
     return order;
+  }
+
+  // ─── Cancel Order (by owner) ───────────────────────────────────────────────
+
+  async cancel(id: string, userId: string): Promise<OrderDocument> {
+    const order = await this.findOne(id);
+
+    if (!order.userId || order.userId.toString() !== userId) {
+      throw new ForbiddenException('Bạn không có quyền hủy đơn hàng này');
+    }
+
+    if (order.status !== OrderStatus.PENDING) {
+      throw new BadRequestException(
+        'Chỉ có thể hủy đơn hàng đang ở trạng thái chờ xác nhận',
+      );
+    }
+
+    const cancelledOrder = await this.orderModel
+      .findByIdAndUpdate(
+        order._id,
+        { $set: { status: OrderStatus.CANCELLED } },
+        { returnDocument: 'after' },
+      )
+      .exec();
+
+    if (!cancelledOrder) {
+      throw new NotFoundException(`Order not found: ${id}`);
+    }
+
+    // Emit realtime event để admin và user biết
+    if (cancelledOrder.userId) {
+      const payload: OrderStatusUpdatedPayload = {
+        orderId: cancelledOrder.orderId,
+        userId: cancelledOrder.userId,
+        oldStatus: OrderStatus.PENDING,
+        newStatus: OrderStatus.CANCELLED,
+        message: ORDER_STATUS_LABEL[OrderStatus.CANCELLED],
+        updatedAt: new Date().toISOString(),
+      };
+      this.ordersGateway.emitOrderStatusUpdated(cancelledOrder.userId, payload);
+    }
+
+    return cancelledOrder;
   }
 
   // ─── Update Status ─────────────────────────────────────────────────────────

@@ -33,14 +33,17 @@ export class ProductsController {
   }
 
   /**
-   * GET /api/v1/drinks?category=<string>&tag=<tag>&limit=<n>&search=<q>&minPrice=<n>&maxPrice=<n>&sort=<key>
-   * Lấy danh sách sản phẩm hỗ trợ filter, search, sort
+   * GET /api/v1/drinks?category=<string>&tag=<tag>&limit=<n>&page=<n>&search=<q>&minPrice=<n>&maxPrice=<n>&sort=<key>
+   * Lấy danh sách sản phẩm hỗ trợ filter, search, sort, pagination
+   * Nếu có page → trả về { data, total, page, totalPages, limit }
+   * Không có page → trả về array (backward compat)
    */
   @Get()
   findAll(
     @Query('category') category?: string,
     @Query('tag') tag?: string,
     @Query('limit') limit?: string,
+    @Query('page') page?: string,
     @Query('search') search?: string,
     @Query('minPrice') minPrice?: string,
     @Query('maxPrice') maxPrice?: string,
@@ -50,6 +53,7 @@ export class ProductsController {
       category,
       tag,
       limit: limit ? parseInt(limit, 10) : undefined,
+      page: page ? parseInt(page, 10) : undefined,
       search,
       minPrice: minPrice ? parseInt(minPrice, 10) : undefined,
       maxPrice: maxPrice ? parseInt(maxPrice, 10) : undefined,

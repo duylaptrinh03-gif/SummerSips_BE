@@ -11,6 +11,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 
+
 // ─── Nested DTO: Topping ──────────────────────────────────────────────────────
 export class OrderItemToppingDto {
   @IsString()
@@ -94,4 +95,18 @@ export class CreateOrderDto {
   @ValidateNested({ each: true })
   @Type(() => CreateOrderItemDto)
   items: CreateOrderItemDto[];
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  deliveryFee?: number;
+
+  @IsOptional()
+  @IsString()
+  couponCode?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  discountAmount?: number;
 }

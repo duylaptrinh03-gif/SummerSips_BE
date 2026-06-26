@@ -1,4 +1,19 @@
-import { IsOptional, IsString, MinLength } from 'class-validator';
+import { IsBoolean, IsObject, IsOptional, IsString, MinLength, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+
+class NotificationsDto {
+  @IsOptional()
+  @IsBoolean()
+  orderUpdates?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  promotions?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  newsletter?: boolean;
+}
 
 export class UpdateUserDto {
   @IsOptional()
@@ -13,4 +28,14 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   defaultAddress?: string;
+
+  @IsOptional()
+  @IsString()
+  avatar?: string;
+
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => NotificationsDto)
+  notifications?: NotificationsDto;
 }

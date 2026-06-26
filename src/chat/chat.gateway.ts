@@ -23,7 +23,10 @@ interface AuthenticatedSocket extends Socket {
 }
 
 @WebSocketGateway({
-  cors: { origin: '*' },
+  cors: {
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    credentials: true,
+  },
   transports: ['websocket', 'polling'],
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
