@@ -13,6 +13,7 @@ import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
 import { AdminModule } from './admin/admin.module';
 import { ChatModule } from './chat/chat.module';
+import { ReviewsModule } from './reviews/reviews.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { ChatModule } from './chat/chat.module';
     AuthModule,
     AdminModule,
     ChatModule,
+    ReviewsModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
